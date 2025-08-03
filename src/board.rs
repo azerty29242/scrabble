@@ -1,7 +1,9 @@
+use ratatui::{buffer::Buffer, layout::{Constraint, Rect}, style::{Color, Style}, widgets::{Block, BorderType, Cell, Row, Table, Widget}};
+
 use crate::letter::{FromChar, Letter, ToChar};
-use std::fmt::Display;
 use crate::score::PREMIUM_SQUARES;
 
+#[derive(Debug)]
 pub struct Board {
     pub primary: [[Letter; 15]; 15],
     pub secondary: [[Letter; 15]; 15],
@@ -37,36 +39,35 @@ impl Board {
     }
 }
 
-impl Display for Board {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const TOP_BORDER: &str = "┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐";
-        const MIDDLE_BORDER: &str = "├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤";
-        const BOTTOM_BORDER: &str = "└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘";
-        writeln!(f, "{TOP_BORDER}")?;
-        for (row_index, row) in self.primary.iter().enumerate() {
-            write!(f, "│")?;
-            for (column_index, cell) in row.iter().enumerate() {
-                let prefix = match PREMIUM_SQUARES[row_index][column_index] {
-                    0 => "",
-                    1 => "\x1b[106m",
-                    2 => "\x1b[104m",
-                    3 => "\x1b[105m",
-                    4 => "\x1b[101m",
-                    _ => "",
-                };
-                let suffix = match PREMIUM_SQUARES[row_index][column_index] {
-                    1..=4 => "\x1b[0m",
-                    _ => "",
-                };
-                write!(f, "{} {} {}│", prefix, cell.to_char(), suffix)?;
-            }
-            writeln!(f)?;
-            if row_index < self.primary.len() - 1 {
-                writeln!(f, "{MIDDLE_BORDER}")?;
-            } else {
-                writeln!(f, "{BOTTOM_BORDER}")?;
-            }
-        }
-        Ok(())
+impl Widget for &Board {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let rows: Vec<Row> = self.primary.iter().enumerate().map(|(row_index, row)| {
+            Row::new(row.iter().enumerate().map(|(col_index, &cell)| {
+                match cell {
+                    0 => {
+                        let color = match PREMIUM_SQUARES[row_index][col_index] {
+                            0 => Color::Green,
+                            1 => Color::Cyan,
+                            2 => Color::Blue,
+                            3 => Color::Magenta,
+                            4 => Color::Red,
+                            _ => panic!()
+                        };
+                        Cell::from(" • ").style(Style::default().bg(color))
+                    },
+                    1..=26 => {
+                        let character = (cell as Letter).to_char();
+                        Cell::from(format!(" {character} ")).style(Style::default().bg(Color::Yellow))
+                    },
+                    _ => panic!()
+                }
+            }).collect::<Vec<_>>())
+        }).collect();
+
+        Table::new(rows, &vec![Constraint::Length(3); 15])
+            .block(Block::bordered().border_type(BorderType::Rounded).title(" Game Board "))
+            .column_spacing(0)
+            .render(area, buf);
     }
 }
+
